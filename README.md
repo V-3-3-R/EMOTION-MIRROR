@@ -2,10 +2,6 @@
 
 > **AI-Powered Emotion Detection & Wellness Tracker — All in Your Browser**
 
-[![GitHub stars](https://img.shields.io/github/stars/V-3-3-R/emotionmirror?style=social)](https://github.com/V-3-3-R/emotionmirror/stargazers)
-[![GitHub issues](https://img.shields.io/github/issues/V-3-3-R/emotionmirror)](https://github.com/V-3-3-R/emotionmirror/issues)
-[![GitHub license](https://img.shields.io/github/license/V-3-3-R/emotionmirror)](./LICENSE)
-
 ---
 
 ## 🌟 Overview
