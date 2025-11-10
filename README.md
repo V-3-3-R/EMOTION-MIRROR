@@ -6,7 +6,7 @@
 
 ## 🌟 Overview
 
-**EmotionMirror ** is an advanced, client-side web application that uses **AI-powered facial recognition** to detect and analyze your emotions in real-time.  
+*EmotionMirror* is an advanced, client-side web application that uses **AI-powered facial recognition** to detect and analyze your emotions in real-time.  
 Built with **modern web technologies**, it provides a holistic **mood tracking dashboard**, **journaling**, **wellness insights**, and **personalized recommendations** — all running entirely in your browser for **privacy and speed**.
 
 > Turn your webcam into a mirror of your mind. Perfect for mental wellness, emotional awareness, or just exploring how your face reflects your mood.
