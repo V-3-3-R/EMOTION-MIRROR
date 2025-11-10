@@ -1,0 +1,1124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>EmotionMirror Pro – Advanced AI Mood Detection Platform</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+  <style>
+    body { font-family: "Poppins", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; transition: background 0.5s; }
+    .neon-title { font-family: "Orbitron", sans-serif; letter-spacing: 1px; text-shadow: 0 0 10px rgba(99,102,241,0.4); }
+    .glass {
+      backdrop-filter: blur(12px);
+      background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .card-hover:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+    .loading-spinner {
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top: 3px solid rgba(99,102,241,0.8);
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .5; }
+    }
+    .fade-in { animation: fadeIn 0.5s ease-in; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .tab-active { background: rgba(99, 102, 241, 0.2); border-bottom: 2px solid rgb(99, 102, 241); }
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
+    .modal.active { display: flex; }
+    .tooltip { position: relative; display: inline-block; }
+    .tooltip .tooltiptext {
+      visibility: hidden;
+      background-color: #1e293b;
+      color: #fff;
+      text-align: center;
+      border-radius: 6px;
+      padding: 5px 10px;
+      position: absolute;
+      z-index: 1;
+      bottom: 125%;
+      left: 50%;
+      margin-left: -60px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      font-size: 12px;
+    }
+    .tooltip:hover .tooltiptext {
+      visibility: visible;
+      opacity: 1;
+    }
+    .heatmap-cell { transition: all 0.3s; cursor: pointer; }
+    .heatmap-cell:hover { transform: scale(1.1); }
+    .progress-ring { transition: stroke-dashoffset 0.5s; }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-slate-100">
+
+  <!-- Navigation -->
+  <nav class="glass border-b border-slate-700/50 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <h1 class="neon-title text-2xl font-bold">EmotionMirror <span class="text-xs bg-indigo-600 px-2 py-1 rounded">PRO</span></h1>
+      </div>
+      <div class="flex items-center gap-4">
+        <button id="profileBtn" class="px-3 py-2 rounded-lg hover:bg-slate-700/50 transition text-sm">👤 <span id="currentUser">Guest</span></button>
+        <button id="settingsBtn" class="px-3 py-2 rounded-lg hover:bg-slate-700/50 transition">⚙️</button>
+        <button id="exportBtn" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg transition text-sm">📥 Export</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto p-6">
+    
+    <!-- Dashboard Tabs -->
+    <div class="flex gap-2 mb-6 overflow-x-auto pb-2">
+      <button class="tab px-4 py-2 rounded-t-lg transition tab-active" data-tab="live">🎥 Live Detection</button>
+      <button class="tab px-4 py-2 rounded-t-lg transition hover:bg-slate-700/30" data-tab="analytics">📊 Analytics</button>
+      <button class="tab px-4 py-2 rounded-t-lg transition hover:bg-slate-700/30" data-tab="journal">📝 Journal</button>
+      <button class="tab px-4 py-2 rounded-t-lg transition hover:bg-slate-700/30" data-tab="wellness">💚 Wellness</button>
+      <button class="tab px-4 py-2 rounded-t-lg transition hover:bg-slate-700/30" data-tab="insights">🧠 Insights</button>
+    </div>
+
+    <!-- Live Detection Tab -->
+    <div id="tab-live" class="tab-content">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Camera Panel -->
+        <div class="lg:col-span-2 glass rounded-xl p-6 card-hover transition-all">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold">Live Emotion Detection</h2>
+            <div class="flex gap-2">
+              <button id="privacyToggle" class="px-3 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs transition">🔒 Privacy Off</button>
+              <button id="openControls" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-md transition">▶️ Start</button>
+            </div>
+          </div>
+          
+          <div class="relative rounded-xl overflow-hidden bg-black">
+            <video id="video" autoplay muted playsinline class="w-full h-80 object-cover"></video>
+            <canvas id="overlay" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+            <div class="absolute top-4 left-4 glass px-3 py-2 rounded-lg">
+              <div class="flex items-center gap-2">
+                <div id="statusDot" class="w-2 h-2 rounded-full bg-slate-500"></div>
+                <span id="cameraStatus" class="text-sm">Camera Off</span>
+              </div>
+            </div>
+            <div class="absolute top-4 right-4 glass px-3 py-2 rounded-lg">
+              <span class="text-sm">FPS: <span id="fps">0</span></span>
+            </div>
+          </div>
+
+          <div id="modelStatus" class="mt-4 flex items-center gap-2 text-sm text-slate-400">
+            <div class="loading-spinner"></div>
+            <span>Initializing AI models...</span>
+          </div>
+        </div>
+
+        <!-- Current Mood Panel -->
+        <div class="space-y-4">
+          <div class="glass rounded-xl p-6 card-hover transition-all">
+            <h3 class="text-sm text-slate-400 mb-4">Current Emotion</h3>
+            <div class="text-center">
+              <div id="moodEmoji" class="text-7xl mb-3">🙂</div>
+              <h2 id="detectedLabel" class="text-3xl font-bold mb-2">—</h2>
+              <p id="detectedConfidence" class="text-slate-400 text-sm mb-4"></p>
+              <div class="w-full bg-slate-700 rounded-full h-2 mb-4">
+                <div id="confidenceBar" class="bg-indigo-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="glass rounded-xl p-6 card-hover transition-all">
+            <h3 class="text-sm text-slate-400 mb-3">Quick Actions</h3>
+            <div class="space-y-2">
+              <button id="saveMood" class="w-full py-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 transition flex items-center justify-center gap-2">
+                💾 Save Mood
+              </button>
+              <button id="addJournalBtn" class="w-full py-3 rounded-lg border border-slate-600 hover:bg-slate-700/50 transition flex items-center justify-center gap-2">
+                📝 Add Journal Entry
+              </button>
+              <button id="suggestMusic" class="w-full py-3 rounded-lg border border-slate-600 hover:bg-slate-700/50 transition flex items-center justify-center gap-2">
+                🎵 Mood Music
+              </button>
+              <button id="breathingEx" class="w-full py-3 rounded-lg border border-slate-600 hover:bg-slate-700/50 transition flex items-center justify-center gap-2">
+                🧘 Breathing Exercise
+              </button>
+            </div>
+          </div>
+
+          <div class="glass rounded-xl p-6 card-hover transition-all">
+            <h3 class="text-sm text-slate-400 mb-2">Mood Quote</h3>
+            <blockquote id="quoteText" class="italic text-sm text-slate-200">"Your mood will appear here."</blockquote>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analytics Tab -->
+    <div id="tab-analytics" class="tab-content hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Stats Cards -->
+        <div class="lg:col-span-2 grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="glass rounded-xl p-4 card-hover transition-all">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm text-slate-400">Total Sessions</p>
+                <h3 id="totalSessions" class="text-2xl font-bold mt-1">0</h3>
+              </div>
+              <div class="text-3xl">📊</div>
+            </div>
+          </div>
+          <div class="glass rounded-xl p-4 card-hover transition-all">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm text-slate-400">Streak Days</p>
+                <h3 id="streakDays" class="text-2xl font-bold mt-1">0</h3>
+              </div>
+              <div class="text-3xl">🔥</div>
+            </div>
+          </div>
+          <div class="glass rounded-xl p-4 card-hover transition-all">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm text-slate-400">Dominant Mood</p>
+                <h3 id="dominantMood" class="text-xl font-bold mt-1">—</h3>
+              </div>
+              <div id="dominantEmoji" class="text-3xl">😊</div>
+            </div>
+          </div>
+          <div class="glass rounded-xl p-4 card-hover transition-all">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm text-slate-400">Wellness Score</p>
+                <h3 id="wellnessScore" class="text-2xl font-bold mt-1">0</h3>
+              </div>
+              <div class="text-3xl">💚</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="glass rounded-xl p-6 card-hover transition-all">
+          <h3 class="text-lg font-semibold mb-4">Mood Distribution</h3>
+          <canvas id="moodChart" height="250"></canvas>
+        </div>
+
+        <div class="glass rounded-xl p-6 card-hover transition-all">
+          <h3 class="text-lg font-semibold mb-4">Mood Timeline (7 Days)</h3>
+          <canvas id="timelineChart" height="250"></canvas>
+        </div>
+
+        <div class="lg:col-span-2 glass rounded-xl p-6 card-hover transition-all">
+          <h3 class="text-lg font-semibold mb-4">Weekly Emotion Heatmap</h3>
+          <div id="heatmap" class="grid grid-cols-7 gap-2"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Journal Tab -->
+    <div id="tab-journal" class="tab-content hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2">
+          <div class="glass rounded-xl p-6">
+            <h2 class="text-xl font-semibold mb-4">Mood Journal</h2>
+            <div id="journalEntries" class="space-y-4 max-h-[600px] overflow-y-auto">
+              <p class="text-slate-400 text-center py-8">No journal entries yet. Start by adding your first entry!</p>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="glass rounded-xl p-6 sticky top-24">
+            <h3 class="text-lg font-semibold mb-4">Quick Stats</h3>
+            <div class="space-y-3">
+              <div class="flex justify-between items-center">
+                <span class="text-sm text-slate-400">Journal Entries</span>
+                <span id="journalCount" class="font-semibold">0</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-sm text-slate-400">This Week</span>
+                <span id="weekEntries" class="font-semibold">0</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-sm text-slate-400">Average Words</span>
+                <span id="avgWords" class="font-semibold">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Wellness Tab -->
+    <div id="tab-wellness" class="tab-content hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="glass rounded-xl p-6 card-hover transition-all">
+          <h2 class="text-xl font-semibold mb-4">Your Wellness Dashboard</h2>
+          <div class="flex justify-center mb-6">
+            <div class="relative w-48 h-48">
+              <svg class="transform -rotate-90 w-48 h-48">
+                <circle cx="96" cy="96" r="88" stroke="rgba(255,255,255,0.1)" stroke-width="12" fill="none" />
+                <circle id="wellnessCircle" cx="96" cy="96" r="88" stroke="rgb(99, 102, 241)" stroke-width="12" fill="none" 
+                  stroke-dasharray="552.92" stroke-dashoffset="552.92" class="progress-ring" stroke-linecap="round" />
+              </svg>
+              <div class="absolute inset-0 flex items-center justify-center flex-col">
+                <span id="wellnessScoreMain" class="text-4xl font-bold">0</span>
+                <span class="text-sm text-slate-400">Wellness Score</span>
+              </div>
+            </div>
+          </div>
+          <div class="space-y-3">
+            <div>
+              <div class="flex justify-between text-sm mb-1">
+                <span>Emotional Balance</span>
+                <span id="balanceScore">0/100</span>
+              </div>
+              <div class="w-full bg-slate-700 rounded-full h-2">
+                <div id="balanceBar" class="bg-green-500 h-2 rounded-full transition-all" style="width: 0%"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-sm mb-1">
+                <span>Consistency</span>
+                <span id="consistencyScore">0/100</span>
+              </div>
+              <div class="w-full bg-slate-700 rounded-full h-2">
+                <div id="consistencyBar" class="bg-blue-500 h-2 rounded-full transition-all" style="width: 0%"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-sm mb-1">
+                <span>Positive Mood Ratio</span>
+                <span id="positiveScore">0/100</span>
+              </div>
+              <div class="w-full bg-slate-700 rounded-full h-2">
+                <div id="positiveBar" class="bg-yellow-500 h-2 rounded-full transition-all" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass rounded-xl p-6 card-hover transition-all">
+          <h2 class="text-xl font-semibold mb-4">Recommendations</h2>
+          <div id="recommendations" class="space-y-3">
+            <div class="p-4 bg-slate-700/30 rounded-lg">
+              <h4 class="font-semibold mb-2">🧘 Take a Break</h4>
+              <p class="text-sm text-slate-400">Try a 5-minute meditation to center yourself.</p>
+              <button class="mt-2 px-3 py-1 bg-indigo-600 rounded text-sm hover:bg-indigo-500">Start</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="lg:col-span-2 glass rounded-xl p-6 card-hover transition-all">
+          <h2 class="text-xl font-semibold mb-4">Mood Goals</h2>
+          <div id="goals" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="p-4 bg-slate-700/30 rounded-lg">
+              <div class="flex justify-between items-start mb-2">
+                <h4 class="font-semibold">Daily Check-in</h4>
+                <span class="text-sm text-green-400">✓</span>
+              </div>
+              <p class="text-sm text-slate-400 mb-2">Complete mood check-in daily</p>
+              <div class="w-full bg-slate-700 rounded-full h-2">
+                <div class="bg-green-500 h-2 rounded-full" style="width: 85%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Insights Tab -->
+    <div id="tab-insights" class="tab-content hidden">
+      <div class="grid grid-cols-1 gap-6">
+        <div class="glass rounded-xl p-6 card-hover transition-all">
+          <h2 class="text-xl font-semibold mb-4">AI-Powered Insights</h2>
+          <div id="insights" class="space-y-4">
+            <div class="p-4 bg-indigo-600/20 border border-indigo-600/50 rounded-lg">
+              <h4 class="font-semibold mb-2">🎯 Pattern Detected</h4>
+              <p class="text-sm text-slate-300">Start tracking to see AI-generated insights about your emotional patterns.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass rounded-xl p-6 card-hover transition-all">
+          <h2 class="text-xl font-semibold mb-4">Anomaly Detection</h2>
+          <div id="anomalies" class="space-y-3">
+            <p class="text-slate-400 text-sm">No anomalies detected. Keep tracking!</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Modals -->
+  <div id="journalModal" class="modal">
+    <div class="glass rounded-xl p-6 max-w-2xl w-full m-4">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-semibold">Add Journal Entry</h3>
+        <button class="close-modal text-2xl hover:text-red-400">×</button>
+      </div>
+      <textarea id="journalText" class="w-full h-40 bg-slate-800 rounded-lg p-4 text-slate-100 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-600" placeholder="How are you feeling? What's on your mind?"></textarea>
+      <div class="mt-4 flex gap-2 justify-end">
+        <button class="close-modal px-4 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50">Cancel</button>
+        <button id="saveJournal" class="px-4 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-500">Save Entry</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="breathingModal" class="modal">
+    <div class="glass rounded-xl p-8 max-w-md w-full m-4 text-center">
+      <h3 class="text-2xl font-semibold mb-4">Breathing Exercise</h3>
+      <div class="relative w-48 h-48 mx-auto mb-6">
+        <div id="breathCircle" class="absolute inset-0 rounded-full bg-indigo-600/30 border-4 border-indigo-600"></div>
+      </div>
+      <p id="breathInstruction" class="text-xl mb-4">Breathe In...</p>
+      <p id="breathCount" class="text-sm text-slate-400 mb-4">0 / 5 cycles</p>
+      <button class="close-modal px-6 py-2 border border-slate-600 rounded-lg hover:bg-slate-700/50">Close</button>
+    </div>
+  </div>
+
+  <div id="profileModal" class="modal">
+    <div class="glass rounded-xl p-6 max-w-md w-full m-4">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-semibold">Profile</h3>
+        <button class="close-modal text-2xl hover:text-red-400">×</button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="text-sm text-slate-400 block mb-2">Username</label>
+          <input id="usernameInput" type="text" class="w-full bg-slate-800 rounded-lg p-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-600" placeholder="Enter username">
+        </div>
+        <button id="saveProfile" class="w-full py-2 bg-indigo-600 rounded-lg hover:bg-indigo-500">Save Profile</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State Management
+    const state = {
+      currentUser: localStorage.getItem('em_username') || 'Guest',
+      moods: JSON.parse(localStorage.getItem('em_moods_v2') || '[]'),
+      journal: JSON.parse(localStorage.getItem('em_journal') || '[]'),
+      isRunning: false,
+      modelsLoaded: false,
+      privacyMode: false,
+      currentTab: 'live',
+      currentMood: null
+    };
+
+    // Mood Configuration
+    const moodMap = {
+      neutral: {emoji:'😐', color:'#64748b', quote:"Balance is a superpower. Breathe.", positive: 0},
+      happy:   {emoji:'😊', color:'#fbbf24', quote:"Your smile is your superpower.", positive: 1},
+      sad:     {emoji:'😢', color:'#0ea5e9', quote:"It's okay to feel – softer days come.", positive: -1},
+      angry:   {emoji:'😠', color:'#dc2626', quote:"Pause. Count. Then act with clarity.", positive: -1},
+      surprised:{emoji:'😲', color:'#a855f7', quote:"Life's surprises are little sparks.", positive: 0},
+      fearful: {emoji:'😨', color:'#312e81', quote:"Safety first – step back and breathe.", positive: -1},
+      disgusted:{emoji:'🤢', color:'#059669', quote:"Let's reset. Redirect your energy gently.", positive: -1}
+    };
+
+    // DOM Elements
+    const video = document.getElementById('video');
+    const overlay = document.getElementById('overlay');
+    const overlayCtx = overlay.getContext('2d');
+
+    // Initialize
+    (async function init(){
+      setupTabs();
+      setupModals();
+      setupEventListeners();
+      await loadModels();
+      updateAllStats();
+      updateCurrentUser();
+    })();
+
+    // Load AI Models
+    async function loadModels(){
+      try {
+        document.getElementById('modelStatus').innerHTML = '<div class="loading-spinner"></div><span>Loading AI models from CDN...</span>';
+        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+        await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
+        state.modelsLoaded = true;
+        document.getElementById('modelStatus').innerHTML = '<span class="text-green-400">✓</span> <span>AI models ready</span>';
+      } catch (e) {
+        document.getElementById('modelStatus').innerHTML = '<span class="text-red-400">✗</span> <span>Model loading failed</span>';
+        console.error('Model loading error:', e);
+      }
+    }
+
+    // Camera Control
+    async function startCamera(){
+      if (!state.modelsLoaded) {
+        alert('Please wait for AI models to load');
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' }, audio: false });
+        video.srcObject = stream;
+        await video.play();
+        video.onloadedmetadata = () => {
+          overlay.width = video.videoWidth;
+          overlay.height = video.videoHeight;
+        };
+        state.isRunning = true;
+        document.getElementById('cameraStatus').textContent = 'Live';
+        document.getElementById('statusDot').className = 'w-2 h-2 rounded-full bg-green-500 pulse';
+        document.getElementById('openControls').innerHTML = '⏸️ Stop';
+        detectLoop();
+      } catch (e) {
+        alert('Camera access required: ' + e.message);
+      }
+    }
+
+    function stopCamera(){
+      if(video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+      }
+      state.isRunning = false;
+      document.getElementById('cameraStatus').textContent = 'Camera Off';
+      document.getElementById('statusDot').className = 'w-2 h-2 rounded-full bg-slate-500';
+      document.getElementById('openControls').innerHTML = '▶️ Start';
+      overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+    }
+
+    // Detection Loop
+    let lastTime = performance.now();
+    let frameCount = 0;
+    
+    async function detectLoop(){
+      if(!state.isRunning) return;
+      try {
+        const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+        const result = await faceapi.detectSingleFace(video, options).withFaceExpressions();
+
+        overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+        
+        if(result){
+          const box = result.detection.box;
+          
+          if(!state.privacyMode) {
+            overlayCtx.strokeStyle = 'rgba(99, 102, 241, 0.8)';
+            overlayCtx.lineWidth = 3;
+            overlayCtx.strokeRect(box.x, box.y, box.width, box.height);
+          }
+
+          const expressions = result.expressions;
+          const sorted = Object.entries(expressions).sort((a,b)=>b[1]-a[1]);
+          const [mood, confidence] = sorted[0];
+          
+          updateMoodUI(mood, confidence);
+        } else {
+          document.getElementById('detectedLabel').textContent = 'No Face';
+          document.getElementById('detectedConfidence').textContent = 'Move closer';
+        }
+
+        // FPS
+        frameCount++;
+        const now = performance.now();
+        if(now - lastTime >= 1000){
+          document.getElementById('fps').textContent = String(frameCount);
+          frameCount = 0;
+          lastTime = now;
+        }
+      } catch(e) {
+        console.error('Detection error:', e);
+      }
+      requestAnimationFrame(detectLoop);
+    }
+
+    // Update Mood UI
+    function updateMoodUI(mood, confidence){
+      const confPercent = (confidence * 100).toFixed(0);
+      state.currentMood = {mood, confidence};
+      
+      document.getElementById('detectedLabel').textContent = mood.toUpperCase();
+      document.getElementById('detectedConfidence').textContent = confPercent + '% confidence';
+      document.getElementById('moodEmoji').textContent = moodMap[mood].emoji;
+      document.getElementById('quoteText').textContent = moodMap[mood].quote;
+      document.getElementById('confidenceBar').style.width = confPercent + '%';
+      
+      // Apply theme
+      document.body.style.background = `linear-gradient(120deg, rgba(6,7,24,1), ${moodMap[mood].color}22)`;
+    }
+
+    // Save Mood
+    function saveMood(){
+      if(!state.currentMood) {
+        alert('No mood detected');
+        return;
+      }
+      
+      const entry = {
+        mood: state.currentMood.mood,
+        confidence: state.currentMood.confidence,
+        timestamp: new Date().toISOString(),
+        date: new Date().toLocaleDateString()
+      };
+      
+      state.moods.push(entry);
+      localStorage.setItem('em_moods_v2', JSON.stringify(state.moods));
+      
+      updateAllStats();
+      showNotification('Mood saved successfully! 💾');
+    }
+
+    // Journal Functions
+    function saveJournalEntry(){
+      const text = document.getElementById('journalText').value.trim();
+      if(!text) return;
+      
+      const entry = {
+        id: Date.now(),
+        text,
+        mood: state.currentMood?.mood || 'neutral',
+        timestamp: new Date().toISOString(),
+        date: new Date().toLocaleDateString()
+      };
+      
+      state.journal.unshift(entry);
+      localStorage.setItem('em_journal', JSON.stringify(state.journal));
+      
+      document.getElementById('journalText').value = '';
+      closeModals();
+      updateJournalDisplay();
+      showNotification('Journal entry saved! 📝');
+    }
+
+    function updateJournalDisplay(){
+      const container = document.getElementById('journalEntries');
+      if(state.journal.length === 0) {
+        container.innerHTML = '<p class="text-slate-400 text-center py-8">No journal entries yet.</p>';
+        return;
+      }
+      
+      container.innerHTML = state.journal.map(entry => `
+        <div class="glass rounded-lg p-4 fade-in">
+          <div class="flex justify-between items-start mb-2">
+            <div class="flex items-center gap-2">
+              <span class="text-2xl">${moodMap[entry.mood]?.emoji || '😐'}</span>
+              <div>
+                <h4 class="font-semibold">${entry.mood.toUpperCase()}</h4>
+                <p class="text-xs text-slate-400">${new Date(entry.timestamp).toLocaleString()}</p>
+              </div>
+            </div>
+            <button onclick="deleteJournal(${entry.id})" class="text-red-400 hover:text-red-300">🗑️</button>
+          </div>
+          <p class="text-sm text-slate-300">${entry.text}</p>
+        </div>
+      `).join('');
+      
+      document.getElementById('journalCount').textContent = state.journal.length;
+      const thisWeek = state.journal.filter(e => {
+        const entryDate = new Date(e.timestamp);
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        return entryDate >= weekAgo;
+      }).length;
+      document.getElementById('weekEntries').textContent = thisWeek;
+      
+      const avgWords = state.journal.length > 0 
+        ? Math.round(state.journal.reduce((sum, e) => sum + e.text.split(' ').length, 0) / state.journal.length)
+        : 0;
+      document.getElementById('avgWords').textContent = avgWords;
+    }
+
+    window.deleteJournal = function(id){
+      if(confirm('Delete this journal entry?')) {
+        state.journal = state.journal.filter(e => e.id !== id);
+        localStorage.setItem('em_journal', JSON.stringify(state.journal));
+        updateJournalDisplay();
+      }
+    };
+
+    // Analytics Functions
+    function updateAllStats(){
+      updateBasicStats();
+      updateCharts();
+      updateHeatmap();
+      updateWellnessScore();
+      updateInsights();
+    }
+
+    function updateBasicStats(){
+      document.getElementById('totalSessions').textContent = state.moods.length;
+      
+      const streak = calculateStreak();
+      document.getElementById('streakDays').textContent = streak;
+      
+      const dominant = getDominantMood();
+      document.getElementById('dominantMood').textContent = dominant ? dominant.toUpperCase() : '—';
+      document.getElementById('dominantEmoji').textContent = dominant ? moodMap[dominant].emoji : '😊';
+    }
+
+    function calculateStreak(){
+      if(state.moods.length === 0) return 0;
+      
+      const dates = [...new Set(state.moods.map(m => m.date))].sort().reverse();
+      let streak = 0;
+      const today = new Date().toLocaleDateString();
+      
+      for(let i = 0; i < dates.length; i++){
+        const checkDate = new Date();
+        checkDate.setDate(checkDate.getDate() - i);
+        const dateStr = checkDate.toLocaleDateString();
+        
+        if(dates.includes(dateStr)) {
+          streak++;
+        } else {
+          break;
+        }
+      }
+      
+      return streak;
+    }
+
+    function getDominantMood(){
+      if(state.moods.length === 0) return null;
+      
+      const counts = {};
+      state.moods.forEach(m => {
+        counts[m.mood] = (counts[m.mood] || 0) + 1;
+      });
+      
+      return Object.entries(counts).sort((a,b) => b[1] - a[1])[0][0];
+    }
+
+    function updateCharts(){
+      // Mood Distribution Chart
+      const moodCtx = document.getElementById('moodChart').getContext('2d');
+      const moodCounts = getMoodCounts();
+      
+      if(window.moodChart) window.moodChart.destroy();
+      window.moodChart = new Chart(moodCtx, {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(moodMap),
+          datasets: [{
+            data: moodCounts,
+            backgroundColor: Object.values(moodMap).map(m => m.color + '99'),
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom' }
+          }
+        }
+      });
+
+      // Timeline Chart
+      const timelineCtx = document.getElementById('timelineChart').getContext('2d');
+      const last7Days = getLast7DaysData();
+      
+      if(window.timelineChart) window.timelineChart.destroy();
+      window.timelineChart = new Chart(timelineCtx, {
+        type: 'line',
+        data: {
+          labels: last7Days.labels,
+          datasets: [{
+            label: 'Mood Entries',
+            data: last7Days.data,
+            borderColor: 'rgb(99, 102, 241)',
+            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+            fill: true,
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: { beginAtZero: true, ticks: { stepSize: 1 } }
+          }
+        }
+      });
+    }
+
+    function getMoodCounts(){
+      const counts = {neutral:0,happy:0,sad:0,angry:0,surprised:0,fearful:0,disgusted:0};
+      state.moods.forEach(m => { if(counts[m.mood] !== undefined) counts[m.mood]++; });
+      return Object.values(counts);
+    }
+
+    function getLast7DaysData(){
+      const labels = [];
+      const data = [];
+      
+      for(let i = 6; i >= 0; i--){
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toLocaleDateString();
+        labels.push(date.toLocaleDateString('en-US', {weekday: 'short'}));
+        data.push(state.moods.filter(m => m.date === dateStr).length);
+      }
+      
+      return {labels, data};
+    }
+
+    function updateHeatmap(){
+      const heatmap = document.getElementById('heatmap');
+      const last7Days = [];
+      
+      for(let i = 6; i >= 0; i--){
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toLocaleDateString();
+        const dayMoods = state.moods.filter(m => m.date === dateStr);
+        
+        const intensity = dayMoods.length;
+        const color = intensity === 0 ? 'bg-slate-800' :
+                      intensity <= 2 ? 'bg-indigo-900' :
+                      intensity <= 5 ? 'bg-indigo-700' :
+                      'bg-indigo-500';
+        
+        last7Days.push(`
+          <div class="heatmap-cell ${color} rounded p-4 text-center relative group">
+            <div class="text-xs font-semibold">${date.toLocaleDateString('en-US', {weekday: 'short'})}</div>
+            <div class="text-xl mt-2">${intensity}</div>
+            <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 rounded text-xs opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
+              ${intensity} entries
+            </div>
+          </div>
+        `);
+      }
+      
+      heatmap.innerHTML = last7Days.join('');
+    }
+
+    function updateWellnessScore(){
+      const score = calculateWellnessScore();
+      document.getElementById('wellnessScore').textContent = score;
+      document.getElementById('wellnessScoreMain').textContent = score;
+      
+      // Update circular progress
+      const circle = document.getElementById('wellnessCircle');
+      const circumference = 552.92;
+      const offset = circumference - (score / 100) * circumference;
+      circle.style.strokeDashoffset = offset;
+      
+      // Update component scores
+      const balance = calculateBalance();
+      const consistency = calculateStreak() * 10;
+      const positive = calculatePositiveRatio();
+      
+      document.getElementById('balanceScore').textContent = `${balance}/100`;
+      document.getElementById('balanceBar').style.width = balance + '%';
+      
+      document.getElementById('consistencyScore').textContent = `${Math.min(consistency, 100)}/100`;
+      document.getElementById('consistencyBar').style.width = Math.min(consistency, 100) + '%';
+      
+      document.getElementById('positiveScore').textContent = `${positive}/100`;
+      document.getElementById('positiveBar').style.width = positive + '%';
+    }
+
+    function calculateWellnessScore(){
+      if(state.moods.length === 0) return 0;
+      
+      const balance = calculateBalance();
+      const consistency = Math.min(calculateStreak() * 10, 100);
+      const positive = calculatePositiveRatio();
+      
+      return Math.round((balance + consistency + positive) / 3);
+    }
+
+    function calculateBalance(){
+      if(state.moods.length === 0) return 0;
+      
+      const moodCounts = getMoodCounts();
+      const total = moodCounts.reduce((a,b) => a+b, 0);
+      if(total === 0) return 0;
+      
+      const variance = moodCounts.map(c => Math.pow(c - total/7, 2)).reduce((a,b) => a+b, 0) / 7;
+      const balance = Math.max(0, 100 - Math.sqrt(variance) * 10);
+      
+      return Math.round(balance);
+    }
+
+    function calculatePositiveRatio(){
+      if(state.moods.length === 0) return 0;
+      
+      const positive = state.moods.filter(m => moodMap[m.mood]?.positive === 1).length;
+      const ratio = (positive / state.moods.length) * 100;
+      
+      return Math.round(ratio);
+    }
+
+    function updateInsights(){
+      const insights = generateInsights();
+      const container = document.getElementById('insights');
+      
+      if(insights.length === 0) {
+        container.innerHTML = '<div class="p-4 bg-indigo-600/20 border border-indigo-600/50 rounded-lg"><p class="text-sm">Track more moods to unlock AI insights!</p></div>';
+        return;
+      }
+      
+      container.innerHTML = insights.map(insight => `
+        <div class="p-4 bg-${insight.color}-600/20 border border-${insight.color}-600/50 rounded-lg">
+          <h4 class="font-semibold mb-2">${insight.icon} ${insight.title}</h4>
+          <p class="text-sm text-slate-300">${insight.message}</p>
+        </div>
+      `).join('');
+    }
+
+    function generateInsights(){
+      const insights = [];
+      
+      if(state.moods.length < 5) return insights;
+      
+      // Pattern detection
+      const last5 = state.moods.slice(-5);
+      const allSame = last5.every(m => m.mood === last5[0].mood);
+      
+      if(allSame) {
+        insights.push({
+          icon: '🎯',
+          title: 'Consistent Pattern',
+          message: `You've been feeling ${last5[0].mood} consistently. This stability is noteworthy.`,
+          color: 'indigo'
+        });
+      }
+      
+      // Streak
+      if(calculateStreak() >= 3) {
+        insights.push({
+          icon: '🔥',
+          title: 'Great Streak!',
+          message: `You've tracked your mood for ${calculateStreak()} consecutive days. Keep it up!`,
+          color: 'green'
+        });
+      }
+      
+      // Positive ratio
+      const positiveRatio = calculatePositiveRatio();
+      if(positiveRatio > 70) {
+        insights.push({
+          icon: '😊',
+          title: 'Positive Vibes',
+          message: `${positiveRatio}% of your recorded moods are positive. You're doing great!`,
+          color: 'yellow'
+        });
+      }
+      
+      // Negative trend warning
+      const recent = state.moods.slice(-10);
+      const negativeRecent = recent.filter(m => moodMap[m.mood]?.positive === -1).length;
+      if(negativeRecent >= 7) {
+        insights.push({
+          icon: '⚠️',
+          title: 'Trend Notice',
+          message: 'You\'ve had several challenging moods recently. Consider self-care activities.',
+          color: 'orange'
+        });
+      }
+      
+      return insights;
+    }
+
+    // Breathing Exercise
+    function startBreathingExercise(){
+      document.getElementById('breathingModal').classList.add('active');
+      let cycle = 0;
+      let phase = 'in';
+      const circle = document.getElementById('breathCircle');
+      const instruction = document.getElementById('breathInstruction');
+      const count = document.getElementById('breathCount');
+      
+      function breatheCycle(){
+        if(cycle >= 5) {
+          instruction.textContent = 'Exercise Complete! 🎉';
+          return;
+        }
+        
+        if(phase === 'in') {
+          circle.style.transform = 'scale(1.5)';
+          circle.style.transition = 'transform 4s ease-in-out';
+          instruction.textContent = 'Breathe In... 🌬️';
+          setTimeout(() => {
+            phase = 'hold';
+            breatheCycle();
+          }, 4000);
+        } else if(phase === 'hold') {
+          instruction.textContent = 'Hold... ⏸️';
+          setTimeout(() => {
+            phase = 'out';
+            breatheCycle();
+          }, 2000);
+        } else {
+          circle.style.transform = 'scale(1)';
+          instruction.textContent = 'Breathe Out... 💨';
+          setTimeout(() => {
+            cycle++;
+            count.textContent = `${cycle} / 5 cycles`;
+            phase = 'in';
+            breatheCycle();
+          }, 4000);
+        }
+      }
+      
+      breatheCycle();
+    }
+
+    // Export Data
+    function exportData(){
+      const data = {
+        user: state.currentUser,
+        moods: state.moods,
+        journal: state.journal,
+        exportDate: new Date().toISOString(),
+        stats: {
+          totalSessions: state.moods.length,
+          streak: calculateStreak(),
+          wellnessScore: calculateWellnessScore()
+        }
+      };
+      
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `emotionmirror-export-${Date.now()}.json`;
+      a.click();
+      
+      showNotification('Data exported successfully! 📥');
+    }
+
+    // Tab System
+    function setupTabs(){
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          const target = tab.dataset.tab;
+          
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('tab-active'));
+          tab.classList.add('tab-active');
+          
+          document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.add('hidden');
+          });
+          document.getElementById(`tab-${target}`).classList.remove('hidden');
+          
+          state.currentTab = target;
+          
+          if(target === 'analytics') updateAllStats();
+          if(target === 'journal') updateJournalDisplay();
+        });
+      });
+    }
+
+    // Modal System
+    function setupModals(){
+      document.querySelectorAll('.close-modal').forEach(btn => {
+        btn.addEventListener('click', closeModals);
+      });
+      
+      document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', (e) => {
+          if(e.target === modal) closeModals();
+        });
+      });
+    }
+
+    function closeModals(){
+      document.querySelectorAll('.modal').forEach(modal => {
+        modal.classList.remove('active');
+      });
+    }
+
+    // Event Listeners
+    function setupEventListeners(){
+      document.getElementById('openControls').addEventListener('click', () => {
+        if(state.isRunning) stopCamera();
+        else startCamera();
+      });
+      
+      document.getElementById('saveMood').addEventListener('click', saveMood);
+      
+      document.getElementById('addJournalBtn').addEventListener('click', () => {
+        document.getElementById('journalModal').classList.add('active');
+      });
+      
+      document.getElementById('saveJournal').addEventListener('click', saveJournalEntry);
+      
+      document.getElementById('suggestMusic').addEventListener('click', () => {
+        if(!state.currentMood) {
+          alert('No mood detected');
+          return;
+        }
+        const q = encodeURIComponent(state.currentMood.mood + ' mood music');
+        window.open(`https://www.youtube.com/results?search_query=${q}`, '_blank');
+      });
+      
+      document.getElementById('breathingEx').addEventListener('click', startBreathingExercise);
+      
+      document.getElementById('privacyToggle').addEventListener('click', () => {
+        state.privacyMode = !state.privacyMode;
+        document.getElementById('privacyToggle').textContent = state.privacyMode ? '🔒 Privacy On' : '🔒 Privacy Off';
+        if(state.privacyMode) {
+          video.style.filter = 'blur(20px)';
+        } else {
+          video.style.filter = 'none';
+        }
+      });
+      
+      document.getElementById('exportBtn').addEventListener('click', exportData);
+      
+      document.getElementById('profileBtn').addEventListener('click', () => {
+        document.getElementById('profileModal').classList.add('active');
+        document.getElementById('usernameInput').value = state.currentUser;
+      });
+      
+      document.getElementById('saveProfile').addEventListener('click', () => {
+        const username = document.getElementById('usernameInput').value.trim();
+        if(username) {
+          state.currentUser = username;
+          localStorage.setItem('em_username', username);
+          updateCurrentUser();
+          closeModals();
+          showNotification('Profile updated! 👤');
+        }
+      });
+    }
+
+    function updateCurrentUser(){
+      document.getElementById('currentUser').textContent = state.currentUser;
+    }
+
+    // Notifications
+    function showNotification(message){
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-20 right-6 glass rounded-lg px-6 py-3 shadow-xl z-50 fade-in';
+      notification.textContent = message;
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.style.opacity = '0';
+        setTimeout(() => notification.remove(), 300);
+      }, 3000);
+    }
+  </script>
+</body>
+</html>
